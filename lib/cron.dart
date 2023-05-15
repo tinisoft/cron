@@ -18,7 +18,7 @@ typedef Task = FutureOr<dynamic> Function();
 /// A cron-like time-based job scheduler.
 abstract class Cron {
   /// A cron-like time-based job scheduler.
-  factory Cron() => _Cron();
+  factory Cron({bool skipOverrun = false}) => _Cron(skipOverrun: true);
 
   /// Schedules a [task] running specified by the [schedule].
   ScheduledTask schedule(Schedule schedule, Task task);
@@ -143,11 +143,13 @@ class _Cron implements Cron {
   bool _closed = false;
   Timer? _timer;
   final _schedules = <_ScheduledTask>[];
+  bool _skipOverrun;
+  _Cron({bool skipOverrun = false}) : _skipOverrun = skipOverrun;
 
   @override
   ScheduledTask schedule(Schedule schedule, Task task) {
     if (_closed) throw Exception('Closed.');
-    final st = _ScheduledTask(schedule, task);
+    final st = _ScheduledTask(schedule, task, _skipOverrun);
     _schedules.add(st);
     _scheduleNextTick();
     return st;
@@ -196,7 +198,9 @@ class _ScheduledTask implements ScheduledTask {
   /// The datetime a Task last run.
   DateTime lastTime = DateTime(0, 0, 0, 0, 0, 0, 0);
 
-  _ScheduledTask(this.schedule, this._task);
+  bool skipOverrun;
+
+  _ScheduledTask(this.schedule, this._task, this.skipOverrun);
 
   void tick(DateTime now) {
     if (_closed) return;
@@ -225,7 +229,9 @@ class _ScheduledTask implements ScheduledTask {
       _running = null;
       if (_overrun) {
         _overrun = false;
-        _run();
+        if (!skipOverrun) {
+          _run();
+        }
       }
     });
   }
